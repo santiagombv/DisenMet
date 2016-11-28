@@ -1,0 +1,94 @@
+---
+title: "Diseños metodológicos y su aplicación en el campo"
+author: "Santiago Benitez-Vieyra"
+lang: spanish
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    toc: yes
+    toc_depth: 1
+---
+
+\pagebreak
+
+#Introducción
+
+Los datos más comunes en biología muchas veces no pueden ser analizados utilizando los modelos aprendidos en los cursos básicos de estadística. Mientras las estadísticas básicas descansan en modelos de datos de distribución normal, en biología los datos son habitualmente de naturaleza binaria (presencia o ausencia en un sitio, éxito reproductivo, estatus de infección de los individuos de una población), proporciones (proporciones sexuales, de infección o de mortalidad) o conteos (número de individuos). Por otra parte, los problemas biológicos a menudo involucran efectos aleatorios como bloques, medidas repetidas  o estudios observacionales replicados en el tiempo o el espacio.    
+Los investigadores muchas veces intentan transformar datos para lograr la normalidad y homogeneidad de varianzas, utilizan pruebas no paramétricas o confían en la robustez de los modelos lineales generales. También suelen ignorar los efectos aleatorios o los tratan como si fueran fijos. Muchas de estas estrategias pueden fallar o, incluso si son exitosas, violan supuestos estadísticos o limitan el alcance de las inferencias. Este curso pretende extender las capacidades de los alumnos para lidiar con este tipo de datos y de elegir una herramienta estadística adecuada a cada situación.    
+Finalmente, se hace una introducción a técnicas multivariadas comunes (análisis de componentes principales y de agrupamiento) que representan las principales herramientas del aprendizaje estadístico no supervisado. En estos casos la variable respuesta no ha sido establecida de antemano y son necesarias herramientas para conocer, resumir o descubrir agrupamientos internos en los datos.    
+
+\pagebreak
+
+#Practico1. Datos de conteo I. Regresion de Poisson.   
+
+Los datos del archivo hormigas.txt corresponden a un estudio donde se pretende determinar si la riqueza de especies de hormigas  (Srich) es afectada por el tipo de hábitat (Habitat), la latitud (Latitude) y la elevación (Elevation). Dado que la riqueza de especies es claramente un dato de conteo, se propone utilizar un modelo lineal generalizado con estructura de errores Poisson.   
+
+##Caso1
+```{r, eval=FALSE}
+ants <- read.table("C:/RD/hormigas.txt", header = TRUE)
+#	ants <- read.table(file = file.choose(), header = TRUE)
+
+# modelo
+gfit1 <- glm(Srich ~ Habitat + Latitude + Elevation, data = ants, family = poisson)
+
+# Tabla "tipo regresión" valores de los parámetros y prueba de Wald
+summary(gfit1)
+
+# Tabla de análisis de la devianza
+anova(gfit1, test = "Chisq")
+
+#significancia del modelo completo (cociente de verosimilitud)
+gfit0 <- glm(Srich ~ 1, data = ants, family = poisson (link = log))
+anova(gfit0, gfit1, test = "Chisq")
+
+#DIAGNÓSTICOS COMUNES
+layout(matrix(1:4, 2, 2))
+plot(gfit1)
+layout(1)
+
+library(car)
+vif(gfit1)
+
+#DIAGNÓSTICOS PARA MLG
+# 1¿Es adecuada la relación media-varianza? (¿es el parámetro de   
+# dispersión = a 1?)
+gfit2 <- glm(Srich ~ Habitat + Latitude + Elevation, data = ants, 
+             family = quasipoisson(link=log))
+
+summary(gfit2)
+anova(gfit2, test = "F")
+
+# 2 ¿Es adecuado el enlace?
+PL <- gfit1$linear.predictors^2
+gfit3 <- glm(Srich ~ Habitat + Latitude + Elevation + PL, data=ants,
+             family = poisson(link=log))
+summary(gfit3)
+
+# INTERPRETACIÓN DE LOS PARÁMETROS
+be <- gfit1$coefficients
+exp(be)
+
+IC <- confint(gfit1)
+exp(IC)
+```
+
+##Ejercicios
+
+1. Utilizar el archivo "tasa visitas.txt" para examinar si el número de abejas halíctidas (n.halict) es influenciado por el número de flores de la planta (flores) y la intensidad de la fragancia producida por las flores (frag). Ajustar el modelo completo, examinar la colinealidad de las variables, probar la presencia de sobredispersión, probar la adecuación del enlace, seleccionar el modelo más adecuado, interpretar los gráficos de bondad de ajuste y los parámetros del modelo.   
+
+2. Utilizando solamente el número de flores de la planta y  el número de abejas visitantes del conjunto de datos anterior, construya un modelo sencillo y utilícelo para realizar un gráfico.   
+
+3. Utilizar el archivo horseshoe crab.txt para examinar si el número de machos satélite (nsatellites) es influenciado por características de las hembras de cangrejo herradura (resto de las variables). Ajustar el modelo completo, examinar la colinealidad de las variables, probar la presencia de sobredispersión, probar la adecuación del enlace, seleccionar el modelo más adecuado, interpretar los gráficos de bondad de ajuste y los parámetros del modelo.   
+
+4. Utilizar los datos del archivo cyclop.txt para ajustar un modelo binomial negativo (función `glm.nb` del paquete `MASS`) donde se pruebe si el número de polinarios exportados por una orquídea (pol.exp) es afectado por variables morfológicas de la planta (nectario, flores, largo.ext). Utilizar una prueba de cociente de verosimilitud para examinar si el modelo binomial negativo es mejor que el modelo poisson. El desarrollo de la prueba se adjunta abajo.
+    
+
+```{r, eval=FALSE}
+L.po<-logLik(nombre_del_modelo_poisson)
+L.nb<-logLik(nombre_del_modelo_binomial_neg)
+d<-2*(L.nb-L.po)
+d
+pchisq(d[1], df=1, lower.tail=F)/2
+```
+
+\pagebreak
