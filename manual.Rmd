@@ -19,7 +19,7 @@ Finalmente, se hace una introducción a técnicas multivariadas comunes (anális
 
 \pagebreak
 
-#Practico1. Datos de conteo I. Regresion de Poisson.   
+#Practico1. Datos de conteo. Regresion de Poisson.   
 
 Los datos del archivo hormigas.txt corresponden a un estudio donde se pretende determinar si la riqueza de especies de hormigas  (Srich) es afectada por el tipo de hábitat (Habitat), la latitud (Latitude) y la elevación (Elevation). Dado que la riqueza de especies es claramente un dato de conteo, se propone utilizar un modelo lineal generalizado con estructura de errores Poisson.   
 
@@ -210,5 +210,127 @@ points(X$PA.ratio, Y, type = "l")
     + ¿Hay un efecto de la lluvia sobre la ocurrencia de toxoplasmosis?
     + ¿A qué nivel de lluvia se espera que la mitad de la población se halle infectada?   
 
-    
 \pagebreak
+
+# Práctico 3. Violación de la Independencia. Modelo mixtos.
+
+## Caso 1.
+El set de datos RIKZ (de Zuur et al. 2009) contiene información sobre muestro de esespecies del áreas intertidales. En nueve playas se midió la riqueza de especies de cinco sitios y se pretende examinar si la altura sobre la línea de marea y la exposición de cada sitio de muestreo influyen sobre la riqueza de especies.
+
+```{r, eval=FALSE}
+rikz <- read.table("RIKZ.txt", header = TRUE)
+#	rikz <- read.table(file = file.choose(), header = TRUE)
+
+# Codificar factores
+rikz$Beach <- as.factor(rikz$Beach)
+rikz$Exposure <- as.factor(rikz$Exposure)
+
+library(nlme)
+
+# 1) Elección de la mejor parte random.
+# La parte fija debe ser lo más compleja posible.
+# No se estima random para la "pendiente" de Exposure
+# porque esta variable no tiene variabilidad dentro de 
+# cada playa.
+r1 <- lme(Richness ~ NAP*Exposure, random = ~ 1 | Beach, 
+          data = rikz, method = "REML")
+r2 <- lme(Richness ~ NAP*Exposure, random = ~ 1 + NAP | Beach, 
+          data = rikz, method = "REML")
+AIC(r1)
+AIC(r2)
+
+# 2) Eleccion de la parte fija.
+# Conservamos la estrutura random elegida en el paso anterior y 
+# Probamos diferentes estructuras fijas.
+# Reajustamos el modelo por ML.
+
+
+f1 <- lme(Richness ~ NAP*Exposure, random = ~ 1 | Beach, 
+          data = rikz, method = "ML")
+f2 <- lme(Richness ~ NAP+Exposure, random = ~ 1 | Beach, 
+          data = rikz, method = "ML")
+anova(f1, f2) #se puede usar AIC, BIC o L.ratios test
+
+# 3) Presentamos el modelo (ajustado por REML)
+
+fit <- lme(Richness ~ NAP+Exposure, random = ~ 1 | Beach, 
+           data = rikz, method = "REML")
+summary(fit)
+
+# 4) Diagnósticos gráficos.
+res <- resid(fit, type = "normalized")
+pre <- fitted(fit)
+
+
+qqnorm(res)
+
+plot(pre, res)
+
+# Puede examinarse la relación entre los residuos y las variables x
+
+plot(res ~ rikz$Exposure)
+plot(res ~ rikz$NAP)
+
+```
+
+
+## Caso 2.
+Analizaremos los mismos datos que en el caso anterior, pero utilizando un GLMM con distribución de errores de tipo Poisson ya que:   
+* La riqueza es una variable de conteo.   
+* El examen gráfico indicó una relación media-varianza no compatible con la distribución normal.   
+
+```{r, eval=FALSE}
+rikz <- read.table("RIKZ.txt", header = TRUE)
+#	rikz <- read.table(file = file.choose(), header = TRUE)
+
+# Codificar factores
+rikz$Beach <- as.factor(rikz$Beach)
+rikz$Exposure <- as.factor(rikz$Exposure)
+
+library(lme4)
+
+# 1) Elección de la mejor parte random.
+# La parte fija debe ser lo más compleja posible.
+# REML es dificil de definir en GLMM.
+r1 <- glmer(Richness ~ NAP*Exposure + (1|Beach), 
+            data = rikz, family = poisson)
+r2 <- glmer(Richness ~ NAP*Exposure + (NAP|Beach), 
+            data = rikz, family = poisson)
+AIC(r1)
+AIC(r2)
+
+# 2) Eleccion de la parte fija.
+# Conservamos la estrutura random elegida en el paso anterior y 
+# Probamos diferentes estructuras fijas.
+f1 <- glmer(Richness ~ NAP*Exposure + (NAP|Beach), 
+          data = rikz, family=poisson)
+f2 <- glmer(Richness ~ NAP+Exposure + (NAP|Beach), 
+          data = rikz, family=poisson)
+anova(f1, f2) #se puede usar AIC, BIC o L.ratios test
+
+# 3) Presentamos el modelo.
+fit <- glmer(Richness ~ NAP+Exposure + (NAP|Beach), 
+          data = rikz, family=poisson)
+summary(fit)
+
+# 4) Diagnósticos gráficos.
+res <- resid(fit, type = "pearson")
+pre <- fitted(fit)
+
+qqnorm(res)
+plot(pre, res)
+
+# Puede examinarse la relación entre los residuos y las variables x
+plot(res ~ rikz$Exposure)
+plot(res ~ rikz$NAP)
+
+# 5) Cómo puedo probar (o ajustar) un modelo sobredisperso?
+library(MASS)
+qfit <- glmmPQL(Richness ~ NAP+Exposure, random = ~NAP|Beach, 
+                data = rikz, family=quasipoisson)
+summary(qfit)
+
+# cambian las significancias de los test t entre los modelos
+# ajustados con glmer y glmmPQL?
+```
+
