@@ -25,7 +25,7 @@ Los datos del archivo hormigas.txt corresponden a un estudio donde se pretende d
 
 ##Caso1
 ```{r, eval=FALSE}
-ants <- read.table("C:/RD/hormigas.txt", header = TRUE)
+ants <- read.table("hormigas.txt", header = TRUE)
 #	ants <- read.table(file = file.choose(), header = TRUE)
 
 # modelo
@@ -78,9 +78,7 @@ exp(IC)
 
 2. Utilizando solamente el número de flores de la planta y  el número de abejas visitantes del conjunto de datos anterior, construya un modelo sencillo y utilícelo para realizar un gráfico.   
 
-3. Utilizar el archivo horseshoe crab.txt para examinar si el número de machos satélite (nsatellites) es influenciado por características de las hembras de cangrejo herradura (resto de las variables). Ajustar el modelo completo, examinar la colinealidad de las variables, probar la presencia de sobredispersión, probar la adecuación del enlace, seleccionar el modelo más adecuado, interpretar los gráficos de bondad de ajuste y los parámetros del modelo.   
-
-4. Utilizar los datos del archivo cyclop.txt para ajustar un modelo binomial negativo (función `glm.nb` del paquete `MASS`) donde se pruebe si el número de polinarios exportados por una orquídea (pol.exp) es afectado por variables morfológicas de la planta (nectario, flores, largo.ext). Utilizar una prueba de cociente de verosimilitud para examinar si el modelo binomial negativo es mejor que el modelo poisson. El desarrollo de la prueba se adjunta abajo.   
+3. Utilizar los datos del archivo cyclop.txt para ajustar un modelo binomial negativo (función `glm.nb` del paquete `MASS`) donde se pruebe si el número de polinarios exportados por una orquídea (pol.exp) es afectado por variables morfológicas de la planta (nectario, flores, largo.ext). Utilizar una prueba de cociente de verosimilitud para examinar si el modelo binomial negativo es mejor que el modelo poisson. El desarrollo de la prueba se adjunta abajo.   
         
 ```{r, eval=FALSE}
 L.po<-logLik(nombre_del_modelo_poisson)
@@ -98,7 +96,7 @@ pchisq(d[1], df=1, lower.tail=F)/2
 A lotes con distintas cantidades de moscas (tot) se les aplicó 3 tipos de veneno (veneno) a distintas dosis (dosis) y se contabilizó el número de moscas muertas (muertos). Se intenta conocer cuál es el veneno más efectivo. Dado que la variable respuesta es una proporción (moscas muertas / moscas totales) se propone un modelo lineal generalizado con estructura de errores binomial para datos agregados.   
    
 ```{r, eval=FALSE}
-ven <- read.table("C:/RD/veneno.txt", header = TRUE)
+ven <- read.table("veneno.txt", header = TRUE)
 #  ven <- read.table(file = file.choose(), header = TRUE)
 
 # construcción de la variable respuesta
@@ -131,26 +129,6 @@ summary(vfit3)
 exp(vfit$coeff)
 
 # parámetros faltantes:
-# paso 1) estimación de la matriz de variaza-covarianza de los estimadores
-VCM <- vcov(vfit)
-VCM
-
-# paso 2) estimación de la comparación faltante (veneno M vs. veneno R)
-be <- vfit$coeff
-veMR <- (be[2] - be[3]) 
-exp(veMR)
-1/exp(veMR)
-
-# paso 3) estimación de su significancia (prueba de wald)
-chi.veRM <- ((be[2] - be[3])^2)/(vcov(vfit)[2, 2]+vcov(vfit)[3, 3] 
-                                 - 2*vcov(vfit)[2, 3])
-pchisq(chi.veRM, 1, lower.tail = FALSE)
-
-# ACLARACIÓN 1: el programa reporta los valores z para el estadístico de
-# Wald. La misma prueba se puede hacer usando z^2 y probabilidades chi 2
-
-# ACLARACIÓN 2: el mismo resultado puede lograrse reordenando los
-# niveles del factor.
 
 ven$veneno2 <- factor(ven$veneno, levels = c('R', 'M', 'D'))
 reor.vfit <- glm(rta ~ veneno2 + dosis, family = binomial(logit), data = ven)
@@ -165,48 +143,55 @@ El archivo uta.txt contiene datos de un estudio donde se examinó la presencia d
 Dado que los datos son de naturaleza binaria, se propone aplicar un modelo lineal generalizado con estructura de errores binomial, para datos no agregados (regresión logística).   
 
 ```{r, eval=FALSE}
-datos <- read.table("C:/RD/uta.txt", header = TRUE)
+datos <- read.table("uta.txt", header = TRUE)
 #	datos <- read.table(file = file.choose(), header = TRUE)
 
-#modelo
+# modelo
 fit <- glm(Uta ~ PA.ratio, data = datos, family = binomial(logit))
 
-#parámetros y su significancia según el estadístico de Wald
+# parámetros y su significancia según el estadístico de Wald
 summary(fit)
 
-#análisis de la devianza 
-anova(fit, test = "Chisq")
+# interpretación de parámetros.
+exp(fit$coefficients)
 
-#examen gráfico de los residuos
+# notar cómo se vuelve más interpretable el intercepto al 
+# centrar la variable.
+datos$PA.ratio.2 <- datos$PA.ratio - mean(datos$PA.ratio, na.rm = T)
+
+fit2 <- glm(Uta ~ PA.ratio.2, data = datos, family = binomial(logit))
+summary(fit2)
+exp(fit2$coefficients)
+
+# análisis de la devianza 
+anova(fit2, test = "Chisq")
+
+# examen gráfico de los residuos
 layout(matrix(1:4, 2, 2))
-plot(fit)
+plot(fit2)
 layout(1)
 
-#examen sobre la pertinencia del enlace
-LP <- fit$linear.predictors^2
-fit3 <- glm(Uta ~ PA.ratio + LP, data = datos, family = binomial(logit))
+# examen sobre la pertinencia del enlace
+LP <- fit2$linear.predictors^2
+fit3 <- glm(Uta ~ PA.ratio.2 + LP, data = datos, family = binomial(logit))
 summary(fit3)
 
 #gráfico con predict
-X <- data.frame(PA.ratio = seq(0, 64, 0.5))
-Y <- predict(fit, X, type = "response")
-plot(Uta ~ PA.ratio, data = datos, xlab = "perímetro/área", ylab = "presencia de Uta")
-points(X$PA.ratio, Y, type = "l")
+X <- seq(0, 64, 0.5))
+Y <- predict(fit2, data.frame(PA.ratio.2 = X), type = "response")
+plot(Uta ~ PA.ratio.2, data = datos, xlab = "perímetro/área", 
+     ylab = "presencia de Uta")
+points(X$PA.ratio.2, Y, type = "l")
 
 ```
 
-##Ejercicios
+## Ejercicios
 1. El archivo budworm.txt contiene los resultados de un experimento donde a lotes de 20 gusanos del tabaco (Number) machos o hembras (Gender) se les aplicó un veneno en distintas concentraciones (Dose) y se examinó cuántos se morían (Killed). Examinar:   
     + ¿Existe un efecto de la dosis de veneno sobre la mortalidad de los gusanos?
     + ¿Existe un efecto del sexo?
     + ¿Modifica el sexo del gusano su respuesta a dosis crecientes de veneno?   
 
-2. El archivo miners.txt contiene datos de la presencia de un ave invasiva (miners) en 31 sitios y de la cantidad de eucaliptos por hectárea en esos sitios (eucs), que fueron implantados en un programa de reforestación.   
-    + ¿Hay un efecto del número de eucaliptos sobre la presencia de miners?
-    + ¿Cuál sería el intervalo de confianza para ese efecto?
-    + Realizar un gráfico para representar los resultados.   
-
-3. El archivo toxo.txt muestra el número de individuos afectados por toxoplasmosis (Infected), el número de individuos examinados (Sampled) y la precipitación anual en 34 ciudades de El Salvador.   
+2. El archivo toxo.txt muestra el número de individuos afectados por toxoplasmosis (Infected), el número de individuos examinados (Sampled) y la precipitación anual en 34 ciudades de El Salvador.   
     + ¿Hay un efecto de la lluvia sobre la ocurrencia de toxoplasmosis?
     + ¿A qué nivel de lluvia se espera que la mitad de la población se halle infectada?   
 
@@ -302,14 +287,14 @@ AIC(r2)
 # 2) Eleccion de la parte fija.
 # Conservamos la estrutura random elegida en el paso anterior y 
 # Probamos diferentes estructuras fijas.
-f1 <- glmer(Richness ~ NAP*Exposure + (NAP|Beach), 
+f1 <- glmer(Richness ~ NAP*Exposure + (NAP|Beach) + (0+NAP|Beach), 
           data = rikz, family=poisson)
-f2 <- glmer(Richness ~ NAP+Exposure + (NAP|Beach), 
+f2 <- glmer(Richness ~ NAP+Exposure + (NAP|Beach) + (0+NAP|Beach), 
           data = rikz, family=poisson)
 anova(f1, f2) #se puede usar AIC, BIC o L.ratios test
 
 # 3) Presentamos el modelo.
-fit <- glmer(Richness ~ NAP+Exposure + (NAP|Beach), 
+fit <- glmer(Richness ~ NAP+Exposure + (NAP|Beach) + (0+NAP|Beach), 
           data = rikz, family=poisson)
 summary(fit)
 
@@ -325,12 +310,26 @@ plot(res ~ rikz$Exposure)
 plot(res ~ rikz$NAP)
 
 # 5) Cómo puedo probar (o ajustar) un modelo sobredisperso?
+# (ejemplo)
 library(MASS)
 qfit <- glmmPQL(Richness ~ NAP+Exposure, random = ~NAP|Beach, 
-                data = rikz, family=quasipoisson)
+                data = rikz, family=poisson)
 summary(qfit)
 
 # cambian las significancias de los test t entre los modelos
 # ajustados con glmer y glmmPQL?
 ```
+
+## Ejercicios.
+1. Se intenta modelar los factores asociados a la infección parasitaria de ciervos rojos por parte del parásito *Elaphostrongylus cervi*. La variable respuesta, infección (infec), se encuentra codificada como 0 y 1. Las variables explicativas propuestas son el largo del ciervo (Length) y su sexo (Sex). Los datos fueron obtenidos de diferentes granjas en España, por lo que se considera que los individuos de la misma granja no constituyen observaciones independientes. Centrar la variable Length antes de ajustar el modelo. Los datos se encuentran en el archivo deer.txt.  
+2. Se intenta conocer si el número de flores por planta (flores) y el área de las glándulas productoras de fragancia (olor) influyen sobre el número de abejas nativas (abejas) que visitan plantas de orquídea. Las observaciones se hicieron en diferentes parches, y por ser el olor una señal difusa se supone que los datos de un mismo parche no son totalmente independientes. Ajustar el modelo planteado utilizando *lme4:glmer* y *MASS:glmmPQL* para probar la presencia de sobredispersión. Los datos se encuentran en el archivo abejas.txt.
+
+\pagebreak
+
+# Paráctico 4. Violación de la independencia y estructuras de correlación.
+
+## Caso 1. 
+
+
+
 
