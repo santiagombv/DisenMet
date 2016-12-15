@@ -329,6 +329,105 @@ summary(qfit)
 # Paráctico 4. Violación de la independencia y estructuras de correlación.
 
 ## Caso 1. 
+Se pretende modelar la abundancia de una especie de ave en relación a la precipitación anual. Para esto se cuenta con una serie temporal con registros desde 1956 hasta 2003. 
+
+```{r, eval=FALSE}
+dat <- read.table("tempcorr.txt", header = TRUE)
+
+plot(abund ~ year, data = dat)
+plot(abund ~ rain, data = dat)
+
+library(nlme)
+
+# Modelo Lineal común (violación de supuestos)
+m0 <- gls(abund ~ rain + year, na.action = na.omit, data = dat)
+summary(m0)
+AIC(m0)
+plot(m0)
+acf(m0$residuals)
+
+# Modelo con autocorrelación de simetría compuesta
+m1 <- gls(abund ~ rain + year, na.action = na.omit, data = dat,
+          correlation = corCompSymm(form = ~ year))
+summary(m1)
+AIC(m1)
+
+# Modelo con autocorrelación AR-1
+m2 <- gls(abund ~ rain + year, na.action = na.omit, data = dat,
+          correlation = corAR1(form = ~ year))
+summary(m2)
+AIC(m2)
+```
+
+## Caso 2.
+Se intenta determinar si cierta característica comunitaria del bosque siberiano se encuentra relacionada con características climáticas como la humedad ambiental. Para cada observación se consigna la latitud y longitud.
+
+```{r, eval=FALSE}
+dat <- read.table("Boreality.txt", header = TRUE)
+head(dat)
+
+## modelo lineal (incorrecto)
+fit1 <- lm (Bor ~ Wet, data = dat)
+summary(fit1)
+
+## visualización de los residuos en el espacio
+## 1) Bubble plots
+library(gstat)
+library(sp)
+E <- rstandard(fit1)
+spatial <- data.frame(E, dat$x, dat$y)
+coordinates(spatial) <- c("dat.x", "dat.y")
+bubble(spatial, "E")
+
+## 2) Variograma
+## el eje y indica cuan diferentes son las obs.
+Vario1 = variogram(E ~ 1, spatial)
+plot(Vario1)
+
+## Agregar correlaciones al modelo
+library(nlme)
+
+m1 <- gls(Bor ~ Wet, data = dat) # sin correlación
+
+m2 <- gls(Bor ~ Wet, data = dat, correlation = 
+            corSpher(form =~ x+y, nugget = TRUE))
+
+m3 <- gls(Bor ~ Wet, data = dat, correlation = 
+            corLin(form =~ x+y, nugget = TRUE))
+
+m4 <- gls(Bor ~ Wet, data = dat, correlation = 
+            corRatio(form =~ x+y, nugget = TRUE))
+
+m5 <- gls(Bor ~ Wet, data = dat, correlation = 
+            corGaus(form =~ x+y, nugget = TRUE))
+
+m6 <- gls(Bor ~ Wet, data = dat, correlation = 
+            corExp(form =~ x+y, nugget = TRUE))
+
+AIC(m1, m2, m3, m4, m5, m6)
+
+## Examinando nuevamente los variogramas
+var1 <- Variogram(m1, form =~x+y, robust = TRUE, 
+                  resType = "normalized")
+plot(var1)
+
+var1 <- Variogram(m1, form =~x+y, robust = TRUE, 
+                  resType = "normalized", maxDist = 2000)
+plot(var1)
+
+
+var6 <- Variogram(m6, form =~x+y, robust = TRUE, 
+                  resType = "normalized", maxDist = 5000)
+plot(var6)
+
+## modelo final
+summary(m6)
+plot(m6)
+```
+
+## Ejercicios.
+1. Se intenta conocer si la fecha de la puesta de huevos del petrel antártico (LayingAP) se relaciona con el área cubierta por hielo marino (MSA). Los datos corresponden a una serie temporal entre 1951 y 2005 (Year) y se encuentran en el archivo petrel.txt.    
+2. Se pretende conocer la relación entre la edad (x) y la incidencia de diabetes de tipo II (y). los datos fueron tomados en 100 sitios de Australia. Las coordenadas geográficas y los valores de las variables se encuentran en el archivo spatial.txt.
 
 
 
